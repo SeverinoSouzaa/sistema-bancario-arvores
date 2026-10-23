@@ -3,7 +3,7 @@ import sys
 from typing import Optional, List, Any
 from modelos import ContaBancaria
 from avl import ArvoreAVL
-
+from rubro_negra import ArvoreRubroNegra # Tentativa de importacao, mas pode falhar se o modulo nao existir ou estiver incompleto
 
 def _obter_classe_rubro_negra() -> Optional[Any]:
     try:
