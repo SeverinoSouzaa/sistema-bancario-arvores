@@ -311,10 +311,14 @@ def executar_bateria_experimentos(tamanhos_personalizados: Optional[List[int]] =
             imprimir_tabela_1_formatada(res_aleatorio, res_crescente)
             todos_resultados.append(res_aleatorio)
 
-        salvar_resultados_csv(todos_resultados)
-        salvar_relatorio_markdown(todos_resultados)
+        deseja_salvar = input("\nDeseja exportar esses resultados para arquivo CSV e Markdown? (s/N) [padrao N]: ").strip().lower()
+        if deseja_salvar == "s":
+            salvar_resultados_csv(todos_resultados)
+            salvar_relatorio_markdown(todos_resultados)
+            print("[Concluido com Sucesso] Resultados brutos exportados:")
+            print("  -> Planilha CSV gerada : resultados_experimentos.csv")
+            print("  -> Relatorio Markdown : resultados_experimentos.md")
+        else:
+            print("[Info] Nenhum arquivo foi gerado no disco.")
 
-        print("[Concluido com Sucesso] Resultados brutos exportados:")
-        print("  -> Planilha CSV gerada : resultados_experimentos.csv")
-        print("  -> Relatorio Markdown : resultados_experimentos.md")
         input("\nPressione ENTER para voltar ao menu de experimentos...")
