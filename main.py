@@ -215,12 +215,23 @@ class SistemaBancarioCLI:
 
     def opcao_5_listar_contas(self) -> None:
         self.cabecalho()
-        print(">>> 5. LISTAR REGISTROS EM ORDEM E CAMINHAMENTOS\n")
+        print(">>> 5. LISTAR CAMINHAMENTOS, MIN E MAX\n")
         contas: List[ContaBancaria] = self.arvore_ativa.caminhamento_em_ordem()
 
         if not contas:
             print("Nenhuma conta cadastrada na arvore ativa.")
         else:
+            menor = self.arvore_ativa.obter_menor()
+            maior = self.arvore_ativa.obter_maior()
+            if menor and maior:
+                print("=" * 75)
+                print("           REGISTROS EXTREMOS DA ESTRUTURA (MINIMO E MAXIMO)")
+                print("=" * 75)
+                print(f"• MENOR CHAVE (MINIMO) : Conta {menor.numero_conta} | Titular: {menor.titular} | Agencia: {menor.agencia} | Saldo: R$ {menor.saldo:,.2f}")
+                print(f"• MAIOR CHAVE (MAXIMO) : Conta {maior.numero_conta} | Titular: {maior.titular} | Agencia: {maior.agencia} | Saldo: R$ {maior.saldo:,.2f}")
+                print("=" * 75 + "\n")
+
+            print("[CAMINHAMENTO EM-ORDEM (ORDENADO PELO NUMERO DA CONTA)]")
             print(f"{'CONTA':<10} | {'TITULAR':<25} | {'AGENCIA':<8} | {'TIPO':<12} | {'SALDO':<15}")
             print("-" * 75)
             for c in contas:
@@ -228,16 +239,10 @@ class SistemaBancarioCLI:
             print("-" * 75)
             print(f"Total de contas listadas: {len(contas)}")
 
-            menor = self.arvore_ativa.obter_menor()
-            maior = self.arvore_ativa.obter_maior()
-            if menor and maior:
-                print(f"Menor Chave Armazenada : Conta {menor.numero_conta} ({menor.titular})")
-                print(f"Maior Chave Armazenada : Conta {maior.numero_conta} ({maior.titular})")
-
             pre = self.arvore_ativa.caminhamento_pre_ordem()
             pos = self.arvore_ativa.caminhamento_pos_ordem()
-            print("\nCaminhamento Pre-Ordem : " + " -> ".join(str(c.numero_conta) for c in pre))
-            print("Caminhamento Pos-Ordem : " + " -> ".join(str(c.numero_conta) for c in pos))
+            print("\n• Caminhamento Pre-Ordem : " + " -> ".join(str(c.numero_conta) for c in pre))
+            print("• Caminhamento Pos-Ordem : " + " -> ".join(str(c.numero_conta) for c in pos))
 
         self.pausar()
 
@@ -320,7 +325,7 @@ class SistemaBancarioCLI:
             print("2. Cadastrar Registro de Conta (Inserir)")
             print("3. Buscar Conta por Numero")
             print("4. Remover Conta por Numero")
-            print("5. Listar Registros em Ordem e Caminhamentos")
+            print("5. Listar Caminhamentos, Min e Max")
             print("6. Exibir Altura, Total de Nos e Estrutura no Terminal")
             print("7. Exibir Estatisticas de Rebalanceamento")
             print("8. Validar as Propriedades da Arvore")
