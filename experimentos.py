@@ -68,39 +68,8 @@ def gerar_chaves_busca(contas_inseridas: List[ContaBancaria], semente: int = 42)
     return chaves_totais
 
 
-def executar_experimento_crescente(n: int) -> Dict[str, Any]:
-    contas = gerar_contas_crescentes(n)
-
-    avl = ArvoreAVL(modo_detalhado=False)
-    inicio_avl = time.perf_counter()
-    for conta in contas:
-        avl.inserir(conta)
-    tempo_avl = (time.perf_counter() - inicio_avl) * 1000.0
-
-    rb = ArvoreRubroNegra(modo_detalhado=False)
-    inicio_rb = time.perf_counter()
-    for conta in contas:
-        rb.inserir(conta)
-    tempo_rb = (time.perf_counter() - inicio_rb) * 1000.0
-
-    return {
-        "n": n,
-        "cenario": "Ordem Crescente (Exp. A)",
-        "padrao_contas": f"Contas de 5 digitos: {contas[0].numero_conta} ate {contas[-1].numero_conta}",
-        "amostra_insercao": [c.numero_conta for c in contas[:5]],
-        "avl_altura": avl.altura,
-        "rb_altura": rb.altura,
-        "avl_rot_ins": avl.estatisticas.total_rotacoes,
-        "rb_rot_ins": rb.estatisticas.total_rotacoes,
-        "rb_rec_ins": rb.estatisticas.recoloracoes,
-        "avl_tempo_ins_ms": tempo_avl,
-        "rb_tempo_ins_ms": tempo_rb,
-    }
-
-
-def executar_experimentos_completos(n: int, semente: int = 42) -> Dict[str, Any]:
-    contas = gerar_contas_aleatorias(n, semente)
-
+def executar_cenario_completo(contas: List[ContaBancaria], cenario: str, semente: int = 42) -> Dict[str, Any]:
+    n = len(contas)
     avl = ArvoreAVL(modo_detalhado=False)
     inicio_avl_ins = time.perf_counter()
     for conta in contas:
@@ -216,14 +185,16 @@ def executar_experimentos_completos(n: int, semente: int = 42) -> Dict[str, Any]
     return {
         "n": n,
         "semente": semente,
-        "cenario": "Ordem Aleatoria (Exp. B, C e D)",
-        "amostra_insercao_aleatoria": [c.numero_conta for c in contas[:5]],
+        "cenario": cenario,
+        "amostra_insercao": [c.numero_conta for c in contas[:5]],
         "primeiras_5_em_ordem_avl": chaves_em_ordem_avl[:5],
         "primeiras_5_em_ordem_rb": chaves_em_ordem_rb[:5],
         "ultimas_5_em_ordem_avl": chaves_em_ordem_avl[-5:],
         "ultimas_5_em_ordem_rb": chaves_em_ordem_rb[-5:],
         "equivalencia_em_ordem": sao_identicas,
         "total_chaves_conferidas": len(chaves_em_ordem_avl),
+        "avl_altura": avl_altura_pos_ins,
+        "rb_altura": rb_altura_pos_ins,
         "avl_altura_final": avl_altura_pos_ins,
         "rb_altura_final": rb_altura_pos_ins,
         "avl_rot_ins": avl_rot_ins,
@@ -249,12 +220,116 @@ def executar_experimentos_completos(n: int, semente: int = 42) -> Dict[str, Any]
         "avl_tempo_busca_inexistente_ms": tempo_avl_inex,
         "rb_tempo_busca_inexistente_ms": tempo_rb_inex,
         "remocao_detalhada": dados_remocao,
+        "avl_rot_rem_10": dados_remocao[10]["rot_avl"],
+        "rb_rot_rem_10": dados_remocao[10]["rot_rb"],
+        "rb_rec_rem_10": dados_remocao[10]["rec_rb"],
+        "avl_tempo_rem_10_ms": dados_remocao[10]["tempo_avl_ms"],
+        "rb_tempo_rem_10_ms": dados_remocao[10]["tempo_rb_ms"],
         "avl_rot_rem_30": dados_remocao[30]["rot_avl"],
         "rb_rot_rem_30": dados_remocao[30]["rot_rb"],
         "rb_rec_rem_30": dados_remocao[30]["rec_rb"],
         "avl_tempo_rem_30_ms": dados_remocao[30]["tempo_avl_ms"],
         "rb_tempo_rem_30_ms": dados_remocao[30]["tempo_rb_ms"],
+        "avl_rot_rem_50": dados_remocao[50]["rot_avl"],
+        "rb_rot_rem_50": dados_remocao[50]["rot_rb"],
+        "rb_rec_rem_50": dados_remocao[50]["rec_rb"],
+        "avl_tempo_rem_50_ms": dados_remocao[50]["tempo_avl_ms"],
+        "rb_tempo_rem_50_ms": dados_remocao[50]["tempo_rb_ms"],
     }
+
+
+def executar_experimento_crescente(n: int, semente: int = 42) -> Dict[str, Any]:
+    contas = gerar_contas_crescentes(n)
+    return executar_cenario_completo(contas, "Ordem Crescente (Exp. A)", semente=semente)
+
+
+def executar_experimentos_completos(n: int, semente: int = 42) -> Dict[str, Any]:
+    contas = gerar_contas_aleatorias(n, semente)
+    return executar_cenario_completo(contas, "Ordem Aleatoria (Exp. B, C e D)", semente=semente)
+
+
+def imprimir_detalhes_cenario(res: Dict[str, Any], numero_cenario: int, titulo: str, eh_crescente: bool) -> None:
+    n = res["n"]
+    print(f"\n[PARTE {numero_cenario}: {titulo.upper()} (N = {n:,})]")
+    print("-" * 80)
+
+    if eh_crescente:
+        amostra_str = " -> ".join(str(ch) for ch in res["amostra_insercao"])
+        print("1. INSERCAO SEQUENCIAL (ORDEM CRESCENTE):")
+        print(f"  * Padrao de Chaves        : Contas {res['amostra_insercao'][0]} ate {res['amostra_insercao'][0] + n - 1} (sequencial)")
+        print(f"  * Amostra de Insercao     : {amostra_str} ... (sequencial)")
+    else:
+        amostra_str = ", ".join(str(ch) for ch in res["amostra_insercao"])
+        print("1. INSERCAO ALEATORIA REALISTA:")
+        print(f"  * Semente Deterministica  : seed = {res['semente']} (Reprodutivel em qualquer maquina)")
+        print(f"  * Amostra de Insercao     : [ {amostra_str}, ... ] (contas bancarias)")
+
+    print(f"  * Altura Final Resultante : AVL = {res['avl_altura_final']} | Rubro-Negra = {res['rb_altura_final']}")
+    print(f"  * Rotacoes de Insercao    : AVL = {res['avl_rot_ins']:,} | Rubro-Negra = {res['rb_rot_ins']:,}")
+    print(f"  * Recoloracoes na RN      : {res['rb_rec_ins']:,}")
+    print(f"  * Tempo de Insercao (ms)  : AVL = {res['avl_tempo_ins_ms']:.3f} ms | Rubro-Negra = {res['rb_tempo_ins_ms']:.3f} ms")
+    print("-" * 80)
+
+    rotulo_busca = "CRESCENTE" if eh_crescente else "ALEATORIA"
+    print(f"2. BATERIA DE BUSCAS NA ARVORE {rotulo_busca} (EXISTENTES E INEXISTENTES):")
+    print(f"  * Total de Consultas      : {res['total_buscas']:,} buscas ({res['total_buscas_existentes']:,} existentes + {res['total_buscas_inexistentes']:,} inexistentes)")
+    print(f"  * Total de Nos Visitados  : AVL = {res['avl_total_nos_busca']:,} nos | Rubro-Negra = {res['rb_total_nos_busca']:,} nos")
+    print(f"  * Media Geral por Busca   : AVL = {res['avl_media_busca']:.2f} nos | Rubro-Negra = {res['rb_media_busca']:.2f} nos")
+    print(f"  * Chaves Existentes (50%) : AVL = {res['avl_media_busca_existente']:.2f} nos/busca ({res['avl_tempo_busca_existente_ms']:.3f} ms) | RN = {res['rb_media_busca_existente']:.2f} nos/busca ({res['rb_tempo_busca_existente_ms']:.3f} ms)")
+    print(f"  * Chaves Inexistentes (50%): AVL = {res['avl_media_busca_inexistente']:.2f} nos/busca ({res['avl_tempo_busca_inexistente_ms']:.3f} ms) | RN = {res['rb_media_busca_inexistente']:.2f} nos/busca ({res['rb_tempo_busca_inexistente_ms']:.3f} ms)")
+    print(f"  * Tempo Total de Busca    : AVL = {res['avl_tempo_busca_ms']:.3f} ms | Rubro-Negra = {res['rb_tempo_busca_ms']:.3f} ms")
+    print("-" * 80)
+
+    rotulo_rem = "CRESCENTE" if eh_crescente else "ALEATORIA"
+    print(f"3. BATERIA DE REMOCOES PARCIAIS NA ARVORE {rotulo_rem} (10%, 30% E 50%):")
+    for pct, info in res["remocao_detalhada"].items():
+        print(
+            f"  * Remocao {pct}% ({info['qtd_removida']} contas): "
+            f"AVL h({info['alt_antes_avl']}->{info['alt_depois_avl']}), rot={info['rot_avl']:,}, t={info['tempo_avl_ms']:.3f}ms | "
+            f"RN h({info['alt_antes_rb']}->{info['alt_depois_rb']}), rot={info['rot_rb']:,}, rec={info['rec_rb']:,}, t={info['tempo_rb_ms']:.3f}ms"
+        )
+    print("-" * 80)
+
+    status_equiv = "100% IDENTICAS (Nenhuma conta perdida ou divergente)" if res["equivalencia_em_ordem"] else "DIVERGENTE"
+    p5_avl_str = ", ".join(str(x) for x in res["primeiras_5_em_ordem_avl"])
+    p5_rb_str = ", ".join(str(x) for x in res["primeiras_5_em_ordem_rb"])
+    u5_avl_str = ", ".join(str(x) for x in res["ultimas_5_em_ordem_avl"])
+    u5_rb_str = ", ".join(str(x) for x in res["ultimas_5_em_ordem_rb"])
+
+    print(f"4. VALIDACAO CRUZADA DE EQUIVALENCIA ESTRUTURAL (CAMINHAMENTO EM-ORDEM - {rotulo_rem}):")
+    print(f"  * Contas Verificadas      : {res['total_chaves_conferidas']:,} de {n:,} contas")
+    print(f"  * Status de Integridade   : {status_equiv}")
+    print(f"  * 5 Menores Contas (AVL)  : [ {p5_avl_str} ]")
+    print(f"  * 5 Menores Contas (RN)   : [ {p5_rb_str} ]  --> CONFERIDO")
+    print(f"  * 5 Maiores Contas (AVL)  : [ {u5_avl_str} ]")
+    print(f"  * 5 Maiores Contas (RN)   : [ {u5_rb_str} ]  --> CONFERIDO")
+    print("-" * 80)
+
+
+def imprimir_quadro_metricas(res: Dict[str, Any], titulo: str) -> None:
+    n = res["n"]
+    print("-" * 80)
+    print(f"        {titulo.upper()} (N = {n:,})")
+    print("-" * 80)
+    print(f"{'METRICA OBRIGATORIA':<35} | {'ARVORE AVL':<18} | {'ARVORE RUBRO-NEGRA':<20}")
+    print("-" * 80)
+    print(f"{'Altura final (Apos Insercao)':<35} | {res['avl_altura_final']:<18} | {res['rb_altura_final']:<20}")
+    print(f"{'Rotacoes na insercao':<35} | {res['avl_rot_ins']:<18,d} | {res['rb_rot_ins']:<20,d}")
+    print(f"{'Rotacoes na remocao (10% dos nos)':<35} | {res['avl_rot_rem_10']:<18,d} | {res['rb_rot_rem_10']:<20,d}")
+    print(f"{'Rotacoes na remocao (30% - Edital)':<35} | {res['avl_rot_rem_30']:<18,d} | {res['rb_rot_rem_30']:<20,d}")
+    print(f"{'Rotacoes na remocao (50% dos nos)':<35} | {res['avl_rot_rem_50']:<18,d} | {res['rb_rot_rem_50']:<20,d}")
+    print(f"{'Recoloracoes (Insercao)':<35} | {'N/A':<18} | {res['rb_rec_ins']:<20,d}")
+    print(f"{'Recoloracoes (Remocao 10%)':<35} | {'N/A':<18} | {res['rb_rec_rem_10']:<20,d}")
+    print(f"{'Recoloracoes (Remocao 30% - Edital)':<35} | {'N/A':<18} | {res['rb_rec_rem_30']:<20,d}")
+    print(f"{'Recoloracoes (Remocao 50%)':<35} | {'N/A':<18} | {res['rb_rec_rem_50']:<20,d}")
+    print(f"{'Total de nos visitados na busca':<35} | {res['avl_total_nos_busca']:<18,d} | {res['rb_total_nos_busca']:<20,d}")
+    print(f"{'Media de nos visitados na busca':<35} | {res['avl_media_busca']:<18.2f} | {res['rb_media_busca']:<20.2f}")
+    print(f"{'Tempo total de insercao (ms)':<35} | {res['avl_tempo_ins_ms']:<18.3f} | {res['rb_tempo_ins_ms']:<20.3f}")
+    print(f"{'Tempo total de busca (ms)':<35} | {res['avl_tempo_busca_ms']:<18.3f} | {res['rb_tempo_busca_ms']:<20.3f}")
+    print(f"{'Tempo total remocao (10%, ms)':<35} | {res['avl_tempo_rem_10_ms']:<18.3f} | {res['rb_tempo_rem_10_ms']:<20.3f}")
+    print(f"{'Tempo total remocao (30% - Edital)':<35} | {res['avl_tempo_rem_30_ms']:<18.3f} | {res['rb_tempo_rem_30_ms']:<20.3f}")
+    print(f"{'Tempo total remocao (50%, ms)':<35} | {res['avl_tempo_rem_50_ms']:<18.3f} | {res['rb_tempo_rem_50_ms']:<20.3f}")
+    print("-" * 80)
 
 
 def imprimir_tabela_1_formatada(res_aleatorio: Dict[str, Any], res_crescente: Optional[Dict[str, Any]] = None) -> None:
@@ -264,73 +339,16 @@ def imprimir_tabela_1_formatada(res_aleatorio: Dict[str, Any], res_crescente: Op
     print("=" * 80)
 
     if res_crescente is not None:
-        amostra_cresc_str = " -> ".join(str(ch) for ch in res_crescente['amostra_insercao'])
-        print("[1. EXPERIMENTO A - INSERCAO EM ORDEM CRESCENTE (PIOR CASO ABB)]")
-        print(f"  * Padrao de Chaves        : {res_crescente['padrao_contas']}")
-        print(f"  * Amostra de Insercao     : {amostra_cresc_str} ... (sequencial)")
-        print(f"  * Altura Final Resultante : AVL = {res_crescente['avl_altura']} | Rubro-Negra = {res_crescente['rb_altura']}")
-        print(f"  * Rotacoes de Insercao    : AVL = {res_crescente['avl_rot_ins']:,} | Rubro-Negra = {res_crescente['rb_rot_ins']:,}")
-        print(f"  * Recoloracoes na RN      : {res_crescente['rb_rec_ins']:,}")
-        print(f"  * Tempo de Insercao (ms)  : AVL = {res_crescente['avl_tempo_ins_ms']:.3f} ms | Rubro-Negra = {res_crescente['rb_tempo_ins_ms']:.3f} ms")
-        print("-" * 80)
+        imprimir_detalhes_cenario(res_crescente, 1, "CENARIO EM ORDEM CRESCENTE (PIOR CASO ABB)", eh_crescente=True)
 
-    amostra_aleat_str = ", ".join(str(ch) for ch in res_aleatorio['amostra_insercao_aleatoria'])
-    print("[2. EXPERIMENTO B - INSERCAO EM ORDEM ALEATORIA (CENARIO REAL BANCARIO)]")
-    print(f"  * Semente Deterministica  : seed = {res_aleatorio['semente']} (Reprodutivel em qualquer maquina)")
-    print(f"  * Amostra de Insercao     : [ {amostra_aleat_str}, ... ] (contas de 5 digitos)")
-    print(f"  * Altura Final Resultante : AVL = {res_aleatorio['avl_altura_final']} | Rubro-Negra = {res_aleatorio['rb_altura_final']}")
-    print(f"  * Rotacoes de Insercao    : AVL = {res_aleatorio['avl_rot_ins']:,} | Rubro-Negra = {res_aleatorio['rb_rot_ins']:,}")
-    print(f"  * Recoloracoes na RN      : {res_aleatorio['rb_rec_ins']:,}")
-    print(f"  * Tempo de Insercao (ms)  : AVL = {res_aleatorio['avl_tempo_ins_ms']:.3f} ms | Rubro-Negra = {res_aleatorio['rb_tempo_ins_ms']:.3f} ms")
-    print("-" * 80)
+    imprimir_detalhes_cenario(res_aleatorio, 2, "CENARIO EM ORDEM ALEATORIA (CENARIO REAL BANCARIO)", eh_crescente=False)
 
-    print("[3. EXPERIMENTO C - BATERIA DE BUSCAS (EXISTENTES E INEXISTENTES)]")
-    print(f"  * Total de Consultas      : {res_aleatorio['total_buscas']:,} buscas ({res_aleatorio['total_buscas_existentes']:,} existentes + {res_aleatorio['total_buscas_inexistentes']:,} inexistentes)")
-    print(f"  * Total de Nos Visitados  : AVL = {res_aleatorio['avl_total_nos_busca']:,} nos | Rubro-Negra = {res_aleatorio['rb_total_nos_busca']:,} nos")
-    print(f"  * Media Geral por Busca   : AVL = {res_aleatorio['avl_media_busca']:.2f} nos | Rubro-Negra = {res_aleatorio['rb_media_busca']:.2f} nos")
-    print(f"  * Chaves Existentes (50%) : AVL = {res_aleatorio['avl_media_busca_existente']:.2f} nos/busca ({res_aleatorio['avl_tempo_busca_existente_ms']:.3f} ms) | RN = {res_aleatorio['rb_media_busca_existente']:.2f} nos/busca ({res_aleatorio['rb_tempo_busca_existente_ms']:.3f} ms)")
-    print(f"  * Chaves Inexistentes (50%): AVL = {res_aleatorio['avl_media_busca_inexistente']:.2f} nos/busca ({res_aleatorio['avl_tempo_busca_inexistente_ms']:.3f} ms) | RN = {res_aleatorio['rb_media_busca_inexistente']:.2f} nos/busca ({res_aleatorio['rb_tempo_busca_inexistente_ms']:.3f} ms)")
-    print(f"  * Tempo Total de Busca    : AVL = {res_aleatorio['avl_tempo_busca_ms']:.3f} ms | Rubro-Negra = {res_aleatorio['rb_tempo_busca_ms']:.3f} ms")
-    print("-" * 80)
-
-    print("[4. EXPERIMENTO D - BATERIA DE REMOCOES PARCIAIS (10%, 30% E 50%)]")
-    for pct, info in res_aleatorio["remocao_detalhada"].items():
-        print(
-            f"  * Remocao {pct}% ({info['qtd_removida']} contas): "
-            f"AVL h({info['alt_antes_avl']}->{info['alt_depois_avl']}), rot={info['rot_avl']:,}, t={info['tempo_avl_ms']:.3f}ms | "
-            f"RN h({info['alt_antes_rb']}->{info['alt_depois_rb']}), rot={info['rot_rb']:,}, rec={info['rec_rb']:,}, t={info['tempo_rb_ms']:.3f}ms"
-        )
-    print("-" * 80)
-
-    status_equiv = "100% IDENTICAS (Nenhuma conta perdida ou divergente)" if res_aleatorio["equivalencia_em_ordem"] else "DIVERGENTE"
-    p5_avl_str = ", ".join(str(x) for x in res_aleatorio["primeiras_5_em_ordem_avl"])
-    p5_rb_str = ", ".join(str(x) for x in res_aleatorio["primeiras_5_em_ordem_rb"])
-    u5_avl_str = ", ".join(str(x) for x in res_aleatorio["ultimas_5_em_ordem_avl"])
-    u5_rb_str = ", ".join(str(x) for x in res_aleatorio["ultimas_5_em_ordem_rb"])
-
-    print("[5. VALIDACAO CRUZADA DE EQUIVALENCIA ESTRUTURAL (CAMINHAMENTO EM-ORDEM)]")
-    print(f"  * Contas Verificadas      : {res_aleatorio['total_chaves_conferidas']:,} de {n:,} contas")
-    print(f"  * Status de Integridade   : {status_equiv}")
-    print(f"  * 5 Menores Contas (AVL)  : [ {p5_avl_str} ]")
-    print(f"  * 5 Menores Contas (RN)   : [ {p5_rb_str} ]  --> CONFERIDO")
-    print(f"  * 5 Maiores Contas (AVL)  : [ {u5_avl_str} ]")
-    print(f"  * 5 Maiores Contas (RN)   : [ {u5_rb_str} ]  --> CONFERIDO")
-    print("-" * 80)
-
-    print(f"        TABELA 1 CONSOLIDADA OFICIAL DO EDITAL (SECAO 5.1 - N = {n:,})")
-    print("-" * 80)
-    print(f"{'METRICA OBRIGATORIA':<35} | {'ARVORE AVL':<18} | {'ARVORE RUBRO-NEGRA':<20}")
-    print("-" * 80)
-    print(f"{'Altura final (Apos Insercao)':<35} | {res_aleatorio['avl_altura_final']:<18} | {res_aleatorio['rb_altura_final']:<20}")
-    print(f"{'Rotacoes na insercao':<35} | {res_aleatorio['avl_rot_ins']:<18,d} | {res_aleatorio['rb_rot_ins']:<20,d}")
-    print(f"{'Rotacoes na remocao (30% dos nos)':<35} | {res_aleatorio['avl_rot_rem_30']:<18,d} | {res_aleatorio['rb_rot_rem_30']:<20,d}")
-    print(f"{'Recoloracoes (Insercao)':<35} | {'N/A':<18} | {res_aleatorio['rb_rec_ins']:<20,d}")
-    print(f"{'Recoloracoes (Remocao 30%)':<35} | {'N/A':<18} | {res_aleatorio['rb_rec_rem_30']:<20,d}")
-    print(f"{'Total de nos visitados na busca':<35} | {res_aleatorio['avl_total_nos_busca']:<18,d} | {res_aleatorio['rb_total_nos_busca']:<20,d}")
-    print(f"{'Media de nos visitados na busca':<35} | {res_aleatorio['avl_media_busca']:<18.2f} | {res_aleatorio['rb_media_busca']:<20.2f}")
-    print(f"{'Tempo total de insercao (ms)':<35} | {res_aleatorio['avl_tempo_ins_ms']:<18.3f} | {res_aleatorio['rb_tempo_ins_ms']:<20.3f}")
-    print(f"{'Tempo total de busca (ms)':<35} | {res_aleatorio['avl_tempo_busca_ms']:<18.3f} | {res_aleatorio['rb_tempo_busca_ms']:<20.3f}")
-    print(f"{'Tempo total de remocao (ms, 30%)':<35} | {res_aleatorio['avl_tempo_rem_30_ms']:<18.3f} | {res_aleatorio['rb_tempo_rem_30_ms']:<20.3f}")
+    print("\n" + "=" * 80)
+    print(f"      QUADROS COMPARATIVOS CONSOLIDADOS (N = {n:,})")
+    print("=" * 80)
+    imprimir_quadro_metricas(res_aleatorio, "TABELA 1: METRICAS CONSOLIDADAS (ORDEM ALEATORIA - CENARIO REAL BANCARIO)")
+    if res_crescente is not None:
+        imprimir_quadro_metricas(res_crescente, "TABELA 2: METRICAS CONSOLIDADAS (ORDEM CRESCENTE - PIOR CASO ABB)")
     print("=" * 80 + "\n")
 
 
@@ -345,8 +363,9 @@ def salvar_resultados_csv(lista_resultados: List[Dict[str, Any]], arquivo: str =
         "avl_media_busca_existente", "rb_media_busca_existente",
         "avl_media_busca_inexistente", "rb_media_busca_inexistente",
         "avl_tempo_busca_ms", "rb_tempo_busca_ms",
-        "avl_rot_rem_30", "rb_rot_rem_30", "rb_rec_rem_30",
-        "avl_tempo_rem_30_ms", "rb_tempo_rem_30_ms"
+        "avl_rot_rem_10", "rb_rot_rem_10", "rb_rec_rem_10", "avl_tempo_rem_10_ms", "rb_tempo_rem_10_ms",
+        "avl_rot_rem_30", "rb_rot_rem_30", "rb_rec_rem_30", "avl_tempo_rem_30_ms", "rb_tempo_rem_30_ms",
+        "avl_rot_rem_50", "rb_rot_rem_50", "rb_rec_rem_50", "avl_tempo_rem_50_ms", "rb_tempo_rem_50_ms"
     ]
 
     with open(arquivo, mode="w", newline="", encoding="utf-8") as f:
@@ -357,25 +376,57 @@ def salvar_resultados_csv(lista_resultados: List[Dict[str, Any]], arquivo: str =
 
 
 def salvar_relatorio_markdown(lista_resultados: List[Dict[str, Any]], arquivo: str = "resultados_experimentos.md") -> None:
+    res_aleat = [r for r in lista_resultados if "Aleatoria" in r.get("cenario", "")]
+    res_cresc = [r for r in lista_resultados if "Crescente" in r.get("cenario", "")]
+
     linhas: List[str] = [
         "# Relatorio de Resultados Experimentais (Trabalho Pratico I - AED II)",
-        "",
-        "## Tabela 1 Consolidada: Comparacao AVL vs Rubro-Negra",
-        "",
-        "| N | Estrutura | Altura Final | Rotacoes Ins | Rotacoes Rem (30%) | Recoloracoes Ins | Recoloracoes Rem | Total Nos Busca | Media Nos Busca | Tempo Ins (ms) | Tempo Busca (ms) | Tempo Rem (ms) |",
-        "| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
+        ""
     ]
 
-    for res in lista_resultados:
-        n = res["n"]
-        linhas.append(
-            f"| {n:,} | AVL | {res['avl_altura_final']} | {res['avl_rot_ins']:,} | {res['avl_rot_rem_30']:,} | N/A | N/A | "
-            f"{res['avl_total_nos_busca']:,} | {res['avl_media_busca']:.2f} | {res['avl_tempo_ins_ms']:.3f} | {res['avl_tempo_busca_ms']:.3f} | {res['avl_tempo_rem_30_ms']:.3f} |"
-        )
-        linhas.append(
-            f"| {n:,} | Rubro-Negra | {res['rb_altura_final']} | {res['rb_rot_ins']:,} | {res['rb_rot_rem_30']:,} | {res['rb_rec_ins']:,} | {res['rb_rec_rem_30']:,} | "
-            f"{res['rb_total_nos_busca']:,} | {res['rb_media_busca']:.2f} | {res['rb_tempo_ins_ms']:.3f} | {res['rb_tempo_busca_ms']:.3f} | {res['rb_tempo_rem_30_ms']:.3f} |"
-        )
+    if res_aleat:
+        linhas.extend([
+            "## Tabela 1 Consolidada: Insercao em Ordem Aleatoria (Cenario Real Bancario)",
+            "",
+            "| N | Estrutura | Altura Final | Rotacoes Ins | Rot Rem (10% | 30% | 50%) | Recol Ins | Recol Rem (10% | 30% | 50%) | Total Nos Busca | Media Nos Busca | Tempo Ins (ms) | Tempo Busca (ms) | Tempo Rem (30%, ms) |",
+            "| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
+        ])
+        for res in res_aleat:
+            n = res["n"]
+            rot_rem_str = f"{res['avl_rot_rem_10']:,} / {res['avl_rot_rem_30']:,} / {res['avl_rot_rem_50']:,}"
+            rot_rem_rb_str = f"{res['rb_rot_rem_10']:,} / {res['rb_rot_rem_30']:,} / {res['rb_rot_rem_50']:,}"
+            rec_rem_rb_str = f"{res['rb_rec_rem_10']:,} / {res['rb_rec_rem_30']:,} / {res['rb_rec_rem_50']:,}"
+            linhas.append(
+                f"| {n:,} | AVL | {res['avl_altura_final']} | {res['avl_rot_ins']:,} | {rot_rem_str} | N/A | N/A | "
+                f"{res['avl_total_nos_busca']:,} | {res['avl_media_busca']:.2f} | {res['avl_tempo_ins_ms']:.3f} | {res['avl_tempo_busca_ms']:.3f} | {res['avl_tempo_rem_30_ms']:.3f} |"
+            )
+            linhas.append(
+                f"| {n:,} | Rubro-Negra | {res['rb_altura_final']} | {res['rb_rot_ins']:,} | {rot_rem_rb_str} | {res['rb_rec_ins']:,} | {rec_rem_rb_str} | "
+                f"{res['rb_total_nos_busca']:,} | {res['rb_media_busca']:.2f} | {res['rb_tempo_ins_ms']:.3f} | {res['rb_tempo_busca_ms']:.3f} | {res['rb_tempo_rem_30_ms']:.3f} |"
+            )
+        linhas.append("")
+
+    if res_cresc:
+        linhas.extend([
+            "## Tabela 2 Consolidada: Insercao em Ordem Crescente (Pior Caso ABB)",
+            "",
+            "| N | Estrutura | Altura Final | Rotacoes Ins | Rot Rem (10% | 30% | 50%) | Recol Ins | Recol Rem (10% | 30% | 50%) | Total Nos Busca | Media Nos Busca | Tempo Ins (ms) | Tempo Busca (ms) | Tempo Rem (30%, ms) |",
+            "| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
+        ])
+        for res in res_cresc:
+            n = res["n"]
+            rot_rem_str = f"{res['avl_rot_rem_10']:,} / {res['avl_rot_rem_30']:,} / {res['avl_rot_rem_50']:,}"
+            rot_rem_rb_str = f"{res['rb_rot_rem_10']:,} / {res['rb_rot_rem_30']:,} / {res['rb_rot_rem_50']:,}"
+            rec_rem_rb_str = f"{res['rb_rec_rem_10']:,} / {res['rb_rec_rem_30']:,} / {res['rb_rec_rem_50']:,}"
+            linhas.append(
+                f"| {n:,} | AVL | {res['avl_altura_final']} | {res['avl_rot_ins']:,} | {rot_rem_str} | N/A | N/A | "
+                f"{res['avl_total_nos_busca']:,} | {res['avl_media_busca']:.2f} | {res['avl_tempo_ins_ms']:.3f} | {res['avl_tempo_busca_ms']:.3f} | {res['avl_tempo_rem_30_ms']:.3f} |"
+            )
+            linhas.append(
+                f"| {n:,} | Rubro-Negra | {res['rb_altura_final']} | {res['rb_rot_ins']:,} | {rot_rem_rb_str} | {res['rb_rec_ins']:,} | {rec_rem_rb_str} | "
+                f"{res['rb_total_nos_busca']:,} | {res['rb_media_busca']:.2f} | {res['rb_tempo_ins_ms']:.3f} | {res['rb_tempo_busca_ms']:.3f} | {res['rb_tempo_rem_30_ms']:.3f} |"
+            )
+        linhas.append("")
 
     with open(arquivo, mode="w", encoding="utf-8") as f:
         f.write("\n".join(linhas) + "\n")
@@ -412,12 +463,15 @@ def executar_bateria_experimentos(tamanhos_personalizados: Optional[List[int]] =
 
         todos_resultados: List[Dict[str, Any]] = []
 
-        for n in tamanhos:
+        for idx, n in enumerate(tamanhos):
             print(f"\n[Executando] Iniciando testes rigorosos para N = {n:,} contas bancarias...")
             res_crescente = executar_experimento_crescente(n)
             res_aleatorio = executar_experimentos_completos(n, semente=42)
             imprimir_tabela_1_formatada(res_aleatorio, res_crescente)
             todos_resultados.append(res_aleatorio)
+            todos_resultados.append(res_crescente)
+            if idx < len(tamanhos) - 1:
+                input(f"\n[Pausa de Inspecao] Pressione ENTER para prosseguir para o proximo tamanho (N = {tamanhos[idx + 1]:,})... ")
 
         deseja_salvar = input("\nDeseja exportar esses resultados para arquivo CSV e Markdown? (s/N) [padrao N]: ").strip().lower()
         if deseja_salvar == "s":

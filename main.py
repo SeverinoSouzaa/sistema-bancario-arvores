@@ -32,8 +32,9 @@ class SistemaBancarioCLI:
         print("         SISTEMA BANCARIO - ARVORES BALANCEADAS (AED II)")
         print("=" * 70)
         status_modo = "ATIVADO" if self.modo_detalhado else "DESATIVADO"
-        print(f"Estrutura Ativa: [ {self.tipo_estrutura} ]   |   Modo Detalhado: [ {status_modo} ]")
-        print(f"Total de Contas: {self.arvore_ativa.tamanho:<5}           |   Altura da Arvore: {self.arvore_ativa.altura}")
+        alt_rb = self.arvore_rb.altura if self.arvore_rb is not None else 0
+        print(f"Estrutura Inspecionada: [ {self.tipo_estrutura} ]   |   Modo Detalhado: [ {status_modo} ]")
+        print(f"Colecao Sincronizada  : {self.arvore_ativa.tamanho} contas   |   AVL: h={self.arvore_avl.altura} | RN: h={alt_rb}")
         print("-" * 70)
 
     def pausar(self) -> None:
@@ -82,12 +83,11 @@ class SistemaBancarioCLI:
 
     def opcao_1_selecionar_estrutura(self) -> None:
         self.cabecalho()
-        print(">>> 1. SELECIONAR ESTRUTURA (AVL / RUBRO-NEGRA)")
+        print(">>> 1. ALTERNAR ESTRUTURA PARA INSPECAO (AVL <-> RUBRO-NEGRA)")
         if self.tipo_estrutura == "AVL":
             cls_rb = _obter_classe_rubro_negra()
             if cls_rb is None:
-                print("\n[Aviso] A Arvore Rubro-Negra sera implementada no proximo modulo (rubro_negra.py).")
-                print("Atualmente a estrutura ativa permanece como Árvore AVL.")
+                print("\n[Aviso] A Arvore Rubro-Negra nao foi encontrada.")
                 self.pausar()
                 return
             if self.arvore_rb is None:
@@ -96,7 +96,8 @@ class SistemaBancarioCLI:
         else:
             self.tipo_estrutura = "AVL"
 
-        print(f"\n[Sucesso] Estrutura ativa alterada para: [ {self.tipo_estrutura} ]")
+        print(f"\n[Sucesso] Estrutura inspecionada alterada para: [ {self.tipo_estrutura} ]")
+        print(f"A mesma colecao de {self.arvore_ativa.tamanho} contas esta sincronizada e disponivel para analise.")
         self.pausar()
 
     def opcao_2_cadastrar_conta(self) -> None:
@@ -110,7 +111,7 @@ class SistemaBancarioCLI:
             self.pausar()
             return
 
-        if self.arvore_ativa.buscar(numero) is not None:
+        if self.arvore_avl.buscar(numero) is not None:
             print(f"\n[AVISO] A conta com numero {numero} ja existe no sistema!")
             print("Conforme a politica do projeto, chaves duplicadas sao rejeitadas. Cadastro cancelado.")
             self.pausar()
@@ -131,13 +132,15 @@ class SistemaBancarioCLI:
         nova_conta = ContaBancaria(numero, titular, agencia, tipo, saldo)
         logs_antes = len(self.arvore_ativa.estatisticas.logs_detalhados)
 
-        sucesso = self.arvore_ativa.inserir(nova_conta)
+        sucesso_avl = self.arvore_avl.inserir(nova_conta)
+        sucesso_rb = self.arvore_rb.inserir(nova_conta) if self.arvore_rb is not None else True
+        sucesso = sucesso_avl and sucesso_rb
 
         if sucesso:
-            print(f"\n[SUCESSO] Conta {numero} ({titular}) inserida na estrutura com sucesso!")
+            print(f"\n[SUCESSO] Conta {numero} ({titular}) inserida simultaneamente na AVL e na Rubro-Negra!")
             if self.modo_detalhado:
                 print("\n" + "=" * 70)
-                print("           PASSO A PASSO DA OPERACAO (MODO DETALHADO)")
+                print(f"     PASSO A PASSO NA ESTRUTURA ATIVA: [ {self.tipo_estrutura} ] (MODO DETALHADO)")
                 print("=" * 70)
                 logs_novos = self.arvore_ativa.estatisticas.logs_detalhados[logs_antes:]
                 if not logs_novos:
@@ -145,7 +148,7 @@ class SistemaBancarioCLI:
                 else:
                     for log in logs_novos:
                         print(log + "\n")
-                print("--- Estrutura Resultante Apos a Operacao ---")
+                print(f"--- Estrutura Resultante [ {self.tipo_estrutura} ] Apos a Operacao ---")
                 self.arvore_ativa.exibir_arvore()
         else:
             print(f"\n[AVISO] A conta com numero {numero} ja existe no sistema.")
@@ -162,9 +165,19 @@ class SistemaBancarioCLI:
             self.pausar()
             return
 
-        nos_antes = self.arvore_ativa.estatisticas.nos_visitados
-        conta = self.arvore_ativa.buscar(numero)
-        custo = self.arvore_ativa.estatisticas.nos_visitados - nos_antes
+        nos_antes_avl = self.arvore_avl.estatisticas.nos_visitados
+        conta_avl = self.arvore_avl.buscar(numero)
+        custo_avl = self.arvore_avl.estatisticas.nos_visitados - nos_antes_avl
+
+        if self.arvore_rb is not None:
+            nos_antes_rb = self.arvore_rb.estatisticas.nos_visitados
+            conta_rb = self.arvore_rb.buscar(numero)
+            custo_rb = self.arvore_rb.estatisticas.nos_visitados - nos_antes_rb
+        else:
+            conta_rb = None
+            custo_rb = 0
+
+        conta = conta_avl or conta_rb
 
         if conta is not None:
             print("\n" + "-" * 50)
@@ -175,10 +188,14 @@ class SistemaBancarioCLI:
             print(f" Tipo de Conta   : {conta.tipo}")
             print(f" Saldo Atual     : R$ {conta.saldo:,.2f}")
             print("-" * 50)
-            print(f"Custo da Busca: {custo} nos visitados no caminho ate encontrar.")
+            print("Custo Comparativo da Busca (Nos Visitados):")
+            print(f"  * Arvore AVL         : {custo_avl} nos visitados")
+            print(f"  * Arvore Rubro-Negra : {custo_rb} nos visitados")
         else:
-            print(f"\n[NAO ENCONTRADA] Nenhuma conta com numero {numero} existe na arvore.")
-            print(f"Custo da Busca: {custo} nos visitados ate confirmar inexistencia.")
+            print(f"\n[NAO ENCONTRADA] Nenhuma conta com numero {numero} existe no sistema.")
+            print("Custo Comparativo ate Confirmar Inexistencia:")
+            print(f"  * Arvore AVL         : {custo_avl} nos visitados")
+            print(f"  * Arvore Rubro-Negra : {custo_rb} nos visitados")
 
         self.pausar()
 
@@ -191,14 +208,21 @@ class SistemaBancarioCLI:
             self.pausar()
             return
 
+        if self.arvore_ativa.buscar(numero) is None:
+            print(f"\n[ERRO] A conta {numero} nao foi encontrada para remocao.")
+            self.pausar()
+            return
+
         logs_antes = len(self.arvore_ativa.estatisticas.logs_detalhados)
-        removida = self.arvore_ativa.remover(numero)
+        removida_avl = self.arvore_avl.remover(numero)
+        removida_rb = self.arvore_rb.remover(numero) if self.arvore_rb is not None else None
+        removida = removida_avl or removida_rb
 
         if removida is not None:
-            print(f"\n[SUCESSO] Conta {numero} ({removida.titular}) removida com sucesso!")
+            print(f"\n[SUCESSO] Conta {numero} ({removida.titular}) removida simultaneamente da AVL e da Rubro-Negra!")
             if self.modo_detalhado:
                 print("\n" + "=" * 70)
-                print("           PASSO A PASSO DA REMOCAO (MODO DETALHADO)")
+                print(f"     PASSO A PASSO NA ESTRUTURA ATIVA: [ {self.tipo_estrutura} ] (MODO DETALHADO)")
                 print("=" * 70)
                 logs_novos = self.arvore_ativa.estatisticas.logs_detalhados[logs_antes:]
                 if not logs_novos:
@@ -206,7 +230,7 @@ class SistemaBancarioCLI:
                 else:
                     for log in logs_novos:
                         print(log + "\n")
-                print("--- Estrutura Resultante Apos a Remocao ---")
+                print(f"--- Estrutura Resultante [ {self.tipo_estrutura} ] Apos a Remocao ---")
                 self.arvore_ativa.exibir_arvore()
         else:
             print(f"\n[ERRO] A conta {numero} nao foi encontrada para remocao.")
@@ -249,46 +273,139 @@ class SistemaBancarioCLI:
     def opcao_6_exibir_arvore(self) -> None:
         self.cabecalho()
         print(">>> 6. EXIBIR ALTURA, QUANTIDADE DE NOS E ESTRUTURA NO TERMINAL\n")
-        print(f"Estrutura Ativa  : {self.tipo_estrutura}")
-        print(f"Quantidade de Nos: {self.arvore_ativa.tamanho}")
-        print(f"Altura da Arvore : {self.arvore_ativa.altura}\n")
+        print(f"Estrutura Inspecionada : {self.tipo_estrutura}")
+        print(f"Quantidade de Nos      : {self.arvore_ativa.tamanho}")
+        print(f"Altura da Arvore       : {self.arvore_ativa.altura}\n")
+
+        if self.modo_detalhado:
+            logs = self.arvore_ativa.estatisticas.logs_detalhados
+            print("=" * 70)
+            print(f"   PASSO A PASSO DAS CORRECOES REGISTRADAS NA [ {self.tipo_estrutura} ]")
+            print("=" * 70)
+            if not logs:
+                print("  -> Nao ocorreram desbalanceamentos ate o momento nesta estrutura.")
+                print("     Todos os nos foram acomodados mantendo as propriedades de equilibrio.\n")
+            else:
+                limite = 5
+                amostra = logs[-limite:] if len(logs) > limite else logs
+                if len(logs) > limite:
+                    print(f"(Mostrando os ultimos {limite} de {len(logs)} eventos de rebalanceamento registrados)\n")
+                for log in amostra:
+                    print(log + "\n" + "-" * 70)
+                print()
+
+        print(f"--- Estrutura Resultante [ {self.tipo_estrutura} ] no Terminal ---")
         self.arvore_ativa.exibir_arvore()
         self.pausar()
 
     def opcao_7_estatisticas(self) -> None:
         self.cabecalho()
-        print(">>> 7. ESTATISTICAS DE REBALANCEAMENTO (METRICAS DO TRABALHO)\n")
-        est = self.arvore_ativa.estatisticas
-        print(f"Rotacoes Simples a Direita (LL)  : {est.rotacoes_simples_direita}")
-        print(f"Rotacoes Simples a Esquerda (RR) : {est.rotacoes_simples_esquerda}")
-        print(f"Rotacoes Duplas Esquerda-Direita : {est.rotacoes_duplas_esq_dir}")
-        print(f"Rotacoes Duplas Direita-Esquerda : {est.rotacoes_duplas_dir_esq}")
-        print("-" * 50)
-        print(f"TOTAL ACUMULADO DE ROTACOES      : {est.total_rotacoes}")
-        print(f"TOTAL DE RECOLORACOES            : {est.recoloracoes}")
-        print(f"TOTAL DE NOS VISITADOS EM BUSCAS : {est.nos_visitados}")
-        if est.logs_detalhados:
-            print("-" * 50)
-            ver = input("\nDeseja visualizar todos os logs detalhados registrados ate aqui? (s/N): ").strip().lower()
-            if ver in ("s", "sim", "y"):
+        print(">>> 7. COMPARATIVO CONSOLIDADO DE ESTATISTICAS E REBALANCEAMENTO\n")
+        est_avl = self.arvore_avl.estatisticas
+        est_rb = self.arvore_rb.estatisticas if self.arvore_rb is not None else None
+
+        rot_ll_rb = est_rb.rotacoes_simples_direita if est_rb else 0
+        rot_rr_rb = est_rb.rotacoes_simples_esquerda if est_rb else 0
+        rot_lr_rb = est_rb.rotacoes_duplas_esq_dir if est_rb else 0
+        rot_rl_rb = est_rb.rotacoes_duplas_dir_esq if est_rb else 0
+        tot_rot_rb = est_rb.total_rotacoes if est_rb else 0
+        rec_rb = est_rb.recoloracoes if est_rb else 0
+        vis_rb = est_rb.nos_visitados if est_rb else 0
+        alt_rb = self.arvore_rb.altura if self.arvore_rb is not None else 0
+        tam_rb = self.arvore_rb.tamanho if self.arvore_rb is not None else 0
+
+        print("=" * 74)
+        print("        QUADRO COMPARATIVO CONSOLIDADO (AVL vs. RUBRO-NEGRA)")
+        print("=" * 74)
+        print(f"{'METRICA / OPERACAO':<36} | {'ARVORE AVL':<16} | {'ARVORE RUBRO-NEGRA':<18}")
+        print("-" * 74)
+        print(f"{'Quantidade de Contas (Nos)':<36} | {self.arvore_avl.tamanho:<16} | {tam_rb:<18}")
+        print(f"{'Altura Atual da Arvore (h)':<36} | {self.arvore_avl.altura:<16} | {alt_rb:<18}")
+        print("-" * 74)
+        print(f"{'Rotacoes Simples a Direita (LL)':<36} | {est_avl.rotacoes_simples_direita:<16} | {rot_ll_rb:<18}")
+        print(f"{'Rotacoes Simples a Esquerda (RR)':<36} | {est_avl.rotacoes_simples_esquerda:<16} | {rot_rr_rb:<18}")
+        print(f"{'Rotacoes Duplas Esquerda-Direita':<36} | {est_avl.rotacoes_duplas_esq_dir:<16} | {rot_lr_rb:<18}")
+        print(f"{'Rotacoes Duplas Direita-Esquerda':<36} | {est_avl.rotacoes_duplas_dir_esq:<16} | {rot_rl_rb:<18}")
+        print("-" * 74)
+        print(f"{'TOTAL ACUMULADO DE ROTACOES':<36} | {est_avl.total_rotacoes:<16} | {tot_rot_rb:<18}")
+        print(f"{'TOTAL DE RECOLORACOES':<36} | {'N/A':<16} | {rec_rb:<18}")
+        print(f"{'TOTAL DE NOS VISITADOS EM CONSULTAS':<36} | {est_avl.nos_visitados:<16} | {vis_rb:<18}")
+        print("=" * 74)
+        tot_rot_combinado = est_avl.total_rotacoes + tot_rot_rb
+        print(f"Total Combinado de Rotacoes no Sistema : {tot_rot_combinado}")
+        print(f"Total de Recoloracoes na Rubro-Negra    : {rec_rb}")
+        print(f"Total de Leituras de Nos em Consultas   : {est_avl.nos_visitados + vis_rb}")
+        print("=" * 74)
+
+        logs_avl = est_avl.logs_detalhados
+        logs_rb = est_rb.logs_detalhados if est_rb else []
+        if logs_avl or logs_rb:
+            print("\nDeseja visualizar o historico detalhado de eventos registrados?")
+            print(f"  [1] Ver historico da AVL ({len(logs_avl)} eventos)")
+            print(f"  [2] Ver historico da Rubro-Negra ({len(logs_rb)} eventos)")
+            print(f"  [3] Ver ambos os historicos")
+            print("  [0] Nao exibir historico (Retornar ao menu)")
+            escolha = input("Selecione uma opcao (0/1/2/3) [padrao 0]: ").strip()
+            if escolha == "1":
                 print("\n" + "=" * 70)
-                print("           HISTORICO DE OPERACOES DETALHADAS REGISTRADAS")
+                print("           HISTORICO DE EVENTOS DETALHADOS - ARVORE AVL")
                 print("=" * 70)
-                for log in est.logs_detalhados:
+                if not logs_avl:
+                    print("Nenhum evento de rebalanceamento registrado na AVL.")
+                for log in logs_avl:
+                    print(log + "\n" + "-" * 70)
+            elif escolha == "2":
+                print("\n" + "=" * 70)
+                print("       HISTORICO DE EVENTOS DETALHADOS - ARVORE RUBRO-NEGRA")
+                print("=" * 70)
+                if not logs_rb:
+                    print("Nenhum evento de rebalanceamento registrado na Rubro-Negra.")
+                for log in logs_rb:
+                    print(log + "\n" + "-" * 70)
+            elif escolha == "3":
+                print("\n" + "=" * 70)
+                print("           HISTORICO DE EVENTOS DETALHADOS - ARVORE AVL")
+                print("=" * 70)
+                if not logs_avl:
+                    print("Nenhum evento de rebalanceamento registrado na AVL.")
+                for log in logs_avl:
+                    print(log + "\n" + "-" * 70)
+                print("\n" + "=" * 70)
+                print("       HISTORICO DE EVENTOS DETALHADOS - ARVORE RUBRO-NEGRA")
+                print("=" * 70)
+                if not logs_rb:
+                    print("Nenhum evento de rebalanceamento registrado na Rubro-Negra.")
+                for log in logs_rb:
                     print(log + "\n" + "-" * 70)
         self.pausar()
 
     def opcao_8_validar_propriedades(self) -> None:
         self.cabecalho()
-        print(">>> 8. VALIDAR AS PROPRIEDADES DA ARVORE\n")
-        valido, mensagem = self.arvore_ativa.validar_propriedades()
-        if valido:
-            print("[STATUS: APROVADO]")
-            print(f"Laudo da Estrutura: {mensagem}")
-            print("Todos os nos satisfazem o limite de altura, balanceamento e ordenacao de ABB.")
+        print(">>> 8. VALIDAR AS PROPRIEDADES DAS DUAS ARVORES SIMULTANEAMENTE\n")
+        valido_avl, msg_avl = self.arvore_avl.validar_propriedades()
+        status_avl = "[APROVADO]" if valido_avl else "[REPROVADO]"
+        print(f"1. ARVORE AVL: {status_avl}")
+        print(f"   Laudo: {msg_avl}\n")
+
+        if self.arvore_rb is not None:
+            valido_rb, msg_rb = self.arvore_rb.validar_propriedades()
+            status_rb = "[APROVADO]" if valido_rb else "[REPROVADO]"
+            print(f"2. ARVORE RUBRO-NEGRA: {status_rb}")
+            print(f"   Laudo: {msg_rb}\n")
         else:
-            print("[STATUS: REPROVADO - VIOLACAO ENCONTRADA]")
-            print(f"Detalhes da falha: {mensagem}")
+            print("2. ARVORE RUBRO-NEGRA: [Indisponivel]")
+
+        if valido_avl and (self.arvore_rb is None or valido_rb):
+            print("=" * 70)
+            print("[CONCLUSAO: INTEGRALMENTE CONFORME]")
+            print("Ambas as estruturas atendem a todas as invariantes e propriedades do Edital.")
+            print("=" * 70)
+        else:
+            print("=" * 70)
+            print("[CONCLUSAO: ALERTA DE INCONSISTENCIA DETECTADA]")
+            print("Pelo menos uma das arvores apresentou divergencia com suas propriedades formais.")
+            print("=" * 70)
+
         self.pausar()
 
     def opcao_9_executar_experimentos(self) -> None:
