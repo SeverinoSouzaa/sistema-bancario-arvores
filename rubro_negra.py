@@ -388,10 +388,23 @@ class ArvoreRubroNegra:
             return None
 
         conta_removida = z.conta
+        arv_antes = self.renderizar_subarvore(self.raiz) if (self.modo_detalhado and self.raiz != self.NIL) else ""
+
+        if z.esquerda == self.NIL and z.direita == self.NIL:
+            tipo_rem = "No folha (grau 0) desconectado diretamente da arvore"
+        elif z.esquerda == self.NIL:
+            tipo_rem = f"No com 1 filho (grau 1): filho direito (Conta {z.direita.chave}) promovido para o lugar do pai"
+        elif z.direita == self.NIL:
+            tipo_rem = f"No com 1 filho (grau 1): filho esquerdo (Conta {z.esquerda.chave}) promovido para o lugar do pai"
+        else:
+            tipo_rem = "No com 2 filhos (grau 2): substituido pelo sucessor em-ordem"
+
         self.quantidade_nos -= 1
 
         y = z
         y_cor_original = y.cor
+        z_cor_original = z.cor
+        tem_dois_filhos = (z.esquerda != self.NIL and z.direita != self.NIL)
 
         if z.esquerda == self.NIL:
             x = z.direita
@@ -412,26 +425,71 @@ class ArvoreRubroNegra:
             self._transplant(z, y)
             y.esquerda = z.esquerda
             y.esquerda.pai = y
-            y.cor = z.cor
+            if y.cor != z.cor:
+                y.cor = z.cor
+                self.estatisticas.recoloracoes += 1
+            else:
+                y.cor = z.cor
 
         if self.modo_detalhado:
-            arv_pos_rem = self.renderizar_subarvore(self.raiz) if self.raiz != self.NIL else "[Arvore Vazia]"
-            tipo_rem = f"Substituida pelo sucessor em-ordem Conta {y.chave}" if (z.esquerda != self.NIL and z.direita != self.NIL) else "Removida diretamente (possui <= 1 filho)"
-            msg_rem = (
-                f"[REMOCAO BST - EXCLUSAO DA CONTA]\n"
-                f"  * Conta {numero_conta} ({conta_removida.titular}): {tipo_rem}.\n\n"
-                f"  >>> Estrutura da arvore logo apos a saida da conta {numero_conta} (antes do rebalanceamento):\n"
-                + "\n".join("    " + l for l in arv_pos_rem.splitlines())
-            )
-            self.estatisticas.registrar_log(msg_rem)
+            if tem_dois_filhos:
+                msg_rem = (
+                    f"[REMOCAO BST - EXCLUSAO DA CONTA NA RUBRO-NEGRA]\n"
+                    f"  * Conta Alvo: Conta {numero_conta} ({conta_removida.titular}) - Cor original: {z_cor_original.value}.\n"
+                    f"  * Estrutura: No com 2 filhos (grau 2).\n"
+                    f"  * Sucessor Em-Ordem localizado: Conta {y.chave} ({y.conta.titular}) - Cor original: {y_cor_original.value}.\n"
+                    f"  * Operacao de Substituicao: O sucessor (Conta {y.chave}) assume a posicao fisica da Conta {numero_conta}."
+                )
+                self.estatisticas.registrar_log(msg_rem)
+                if y_cor_original != z_cor_original:
+                    msg_rec = (
+                        f"[RECOLORACAO NA RUBRO-NEGRA - HERANCA DA COR DO NO ALVO]\n"
+                        f"  * O sucessor (Conta {y.chave}) assume a cor do no que substituiu (Conta {numero_conta}).\n"
+                        f"  * Acao: Conta {y.chave} e RECOLORIDA de {y_cor_original.value} para {z_cor_original.value}.\n"
+                        f"  * Justificativa: Preserva a cor {z_cor_original.value} naquele ponto da arvore, satisfazendo as propriedades da raiz/ancestral."
+                    )
+                    self.estatisticas.registrar_log(msg_rec)
+            else:
+                msg_rem = (
+                    f"[REMOCAO BST - EXCLUSAO DA CONTA NA RUBRO-NEGRA]\n"
+                    f"  * Conta Alvo: Conta {numero_conta} ({conta_removida.titular}) - Cor original: {y_cor_original.value}.\n"
+                    f"  * Estrutura: {tipo_rem}.\n"
+                    f"  * Operacao: No desconectado diretamente da arvore."
+                )
+                self.estatisticas.registrar_log(msg_rem)
 
         if y_cor_original == Cor.PRETO:
             if self.modo_detalhado and self.raiz != self.NIL:
+                no_saida = f"sucessor Conta {y.chave}" if tem_dois_filhos else f"Conta {numero_conta}"
                 self.estatisticas.registrar_log(
-                    f"[REBALANCEAMENTO DE REMOCAO FIXUP]\n"
-                    f"  * No removido/deslocado era PRETO -> Propriedade de altura negra violada (necessario fixup)."
+                    f"[ANALISE DA ALTURA NEGRA - NO DESLOCADO ERA PRETO]\n"
+                    f"  * O no que fisicamente desocupou sua posicao na base da arvore ({no_saida}) tinha cor PRETO.\n"
+                    f"  * Consequencia: A perda de um no preto reduziu a altura negra (bh) nesse ramo.\n"
+                    f"  * O no substituto x ({x.chave if x != self.NIL else 'NIL'}) recebe a 'dupla-preta'. Iniciando resolucao de fixup."
                 )
             self._remover_fixup(x)
+        else:
+            if self.modo_detalhado:
+                no_saida = f"sucessor Conta {y.chave}" if tem_dois_filhos else f"Conta {numero_conta}"
+                msg_verm = (
+                    f"[ANALISE DA ALTURA NEGRA - NO DESLOCADO ERA VERMELHO]\n"
+                    f"  * O no que fisicamente desocupou sua posicao na base da arvore ({no_saida}) tinha cor VERMELHO.\n"
+                    f"  * Consequencia: A remocao de um no vermelho nao reduz a contagem de nos pretos em nenhum caminho ate NIL.\n"
+                    f"  * Propriedades Rubro-Negras (altura negra bh e ausencia de conflitos) preservadas intactas.\n"
+                    f"  * Rebalanceamento concluido sem necessidade de fixup ou rotacoes."
+                )
+                self.estatisticas.registrar_log(msg_verm)
+
+        if self.modo_detalhado:
+            arv_depois = self.renderizar_subarvore(self.raiz) if self.raiz != self.NIL else "[Arvore Vazia]"
+            msg_resumo = (
+                f"[RESUMO VISUAL DA REMOCAO NA RUBRO-NEGRA - CONTA {numero_conta}]\n"
+                f"  >>> Estrutura da Arvore ANTES da Remocao:\n"
+                + "\n".join("    " + l for l in arv_antes.splitlines()) +
+                f"\n\n  >>> Estrutura da Arvore DEPOIS da Remocao e Rebalanceamento:\n"
+                + "\n".join("    " + l for l in arv_depois.splitlines())
+            )
+            self.estatisticas.registrar_log(msg_resumo)
 
         return conta_removida
 
