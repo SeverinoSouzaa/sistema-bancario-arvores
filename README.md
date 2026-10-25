@@ -6,11 +6,14 @@
 
 ## 1. Identificação da Equipe
 
-| Nome Completo | Matrícula | E-mail Institucional | GitHub |
-| :--- | :--- | :--- | :--- |
-| Severino Souza | [Preencher] | [Preencher] | [@SeverinoSouzaa](https://github.com/SeverinoSouzaa) |
-| [Nome do Integrante 2] | [Preencher] | [Preencher] | [@usuario] |
-| [Nome do Integrante 3] | [Preencher] | [Preencher] | [@usuario] |
+### 👥 Equipe
+
+| # | 👤 Integrante |
+| :-: | :--- |
+| **01** | Severino Souza |
+| **02** | Fran Robson |
+| **03** | Jenner Lucas |
+| **04** | Raul Berger |
 
 ---
 
