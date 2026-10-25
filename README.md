@@ -59,7 +59,7 @@ sistema-bancario-arvores/
 ├── modelos.py          # Entidade Conta e classes auxiliares de nós e métricas
 ├── experimentos.py     # Scripts automatizados para os Experimentos A, B, C e D
 ├── main.py             # Interface interativa de linha de comando (CLI com modo detalhado)
-├── docs/               # Documentação complementar e Relatório Técnico em PDF
+├── relatorio-final/    # Relatório Técnico PDF
 │   └── Relatorio_Trabalho_Pratico_I.pdf
 ├── .gitignore          # Arquivos e diretórios ignorados pelo Git
 └── README.md           # Documentação técnica e instruções de execução
@@ -179,4 +179,4 @@ Para assegurar a reprodutibilidade científica (Seção 5 e 8 do enunciado), tod
 - [x] Tratamento robusto para chaves inexistentes e duplicadas.
 - [x] Modo detalhado (*verbose*) implementado e funcional no terminal.
 - [x] Bateria de experimentos comparativos automatizada e reprodutível.
-- [x] Relatório técnico comparativo em PDF salvo na pasta `docs/`.
+- [x] Relatório técnico comparativo em PDF salvo na pasta `relatorio-final/`.
