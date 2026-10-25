@@ -244,6 +244,8 @@ class ArvoreAVL:
 
     def remover(self, numero_conta: int) -> Optional[ContaBancaria]:
         removido: Optional[ContaBancaria] = None
+        rotacoes_antes = self.estatisticas.total_rotacoes
+        arv_antes = self.renderizar_subarvore(self.raiz) if (self.modo_detalhado and self.raiz is not None) else ""
 
         def _remover_rec(no_atual: Optional[NoAVL], chave_alvo: int) -> Optional[NoAVL]:
             nonlocal removido
@@ -258,27 +260,81 @@ class ArvoreAVL:
                 if removido is None:
                     removido = no_atual.conta
                     self.quantidade_nos -= 1
+
+                eh_sucessor = (chave_alvo != numero_conta)
+                rotulo = f"Conta {no_atual.chave} ({no_atual.conta.titular})"
+                if eh_sucessor:
+                    rotulo += " [SUCESSOR EM-ORDEM]"
+
+                if no_atual.esquerda is None and no_atual.direita is None:
                     if self.modo_detalhado:
-                        self.estatisticas.registrar_log(
-                            f"[AVL] Conta {numero_conta} localizada para remocao."
+                        msg = (
+                            f"[REMOCAO AVL - CASO 1: NO FOLHA (GRAU 0)]\n"
+                            f"  * {rotulo} nao possui filhos.\n"
+                            f"  * Operacao: No folha desconectado diretamente da arvore.\n"
+                            f"  * Proximo passo: Recalculo de alturas e fatores de balanceamento dos ancestrais."
                         )
+                        self.estatisticas.registrar_log(msg)
+                    return None
 
                 if no_atual.esquerda is None:
-                    return no_atual.direita
+                    filho = no_atual.direita
+                    if self.modo_detalhado:
+                        msg = (
+                            f"[REMOCAO AVL - CASO 2: NO COM 1 FILHO (GRAU 1)]\n"
+                            f"  * {rotulo} possui apenas filho direito (Conta {filho.chave}).\n"
+                            f"  * Operacao: Filho {filho.chave} ({filho.conta.titular}) promovido para a posicao do pai.\n"
+                            f"  * Proximo passo: Recalculo de alturas e fatores de balanceamento dos ancestrais."
+                        )
+                        self.estatisticas.registrar_log(msg)
+                    return filho
                 elif no_atual.direita is None:
-                    return no_atual.esquerda
+                    filho = no_atual.esquerda
+                    if self.modo_detalhado:
+                        msg = (
+                            f"[REMOCAO AVL - CASO 2: NO COM 1 FILHO (GRAU 1)]\n"
+                            f"  * {rotulo} possui apenas filho esquerdo (Conta {filho.chave}).\n"
+                            f"  * Operacao: Filho {filho.chave} ({filho.conta.titular}) promovido para a posicao do pai.\n"
+                            f"  * Proximo passo: Recalculo de alturas e fatores de balanceamento dos ancestrais."
+                        )
+                        self.estatisticas.registrar_log(msg)
+                    return filho
 
                 sucessor = self._menor_no(no_atual.direita)
                 no_atual.conta = sucessor.conta
                 if self.modo_detalhado:
-                    self.estatisticas.registrar_log(
-                        f"[AVL] No com dois filhos substituido pelo sucessor em-ordem (conta {sucessor.chave})."
+                    msg = (
+                        f"[REMOCAO AVL - CASO 3: NO COM 2 FILHOS (GRAU 2)]\n"
+                        f"  * {rotulo} possui subarvores esquerda e direita.\n"
+                        f"  * Localizado o sucessor em-ordem: Conta {sucessor.chave} ({sucessor.conta.titular}) - menor elemento da subarvore direita.\n"
+                        f"  * Operacao: Conteudo da Conta {sucessor.chave} copiado para a posicao do no atual.\n"
+                        f"  * Proximo passo: Remocao recursiva do sucessor (Conta {sucessor.chave}) na subarvore direita."
                     )
+                    self.estatisticas.registrar_log(msg)
                 no_atual.direita = _remover_rec(no_atual.direita, sucessor.chave)
 
             return self._rebalancear(no_atual)
 
         self.raiz = _remover_rec(self.raiz, numero_conta)
+        if self.modo_detalhado and removido is not None:
+            if rotacoes_antes == self.estatisticas.total_rotacoes:
+                msg = (
+                    f"[VERIFICACAO DE BALANCEAMENTO POS-REMOCAO AVL]\n"
+                    f"  * Alturas e fatores de balanceamento recalculados ate a raiz.\n"
+                    f"  * Todos os nos ancestrais permaneceram com |FB| <= 1. Nenhuma rotacao foi necessaria."
+                )
+                self.estatisticas.registrar_log(msg)
+
+            arv_depois = self.renderizar_subarvore(self.raiz) if self.raiz is not None else "[Arvore Vazia]"
+            msg_resumo = (
+                f"[RESUMO VISUAL DA REMOCAO NA AVL - CONTA {numero_conta}]\n"
+                f"  >>> Estrutura da Arvore ANTES da Remocao:\n"
+                + "\n".join("    " + l for l in arv_antes.splitlines()) +
+                f"\n\n  >>> Estrutura da Arvore DEPOIS da Remocao e Rebalanceamento:\n"
+                + "\n".join("    " + l for l in arv_depois.splitlines())
+            )
+            self.estatisticas.registrar_log(msg_resumo)
+
         return removido
 
     def buscar(self, numero_conta: int) -> Optional[ContaBancaria]:
